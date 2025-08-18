@@ -164,7 +164,7 @@ fn process_markdown_file(
         let rel = parent; // caller ensures directories
         let parent_rel_name = rel.file_name();
         if let Some(name) = parent_rel_name {
-            output_path = output_dir.join(name).join(path.file_name().unwrap_or_default());
+            output_path = output_dir.join(path.file_name().unwrap_or_default());
             // Ensure parent exists
             if let Some(parent_out) = output_path.parent() {
                 fs::create_dir_all(parent_out)?;
@@ -177,16 +177,7 @@ fn process_markdown_file(
 
     let note = Note {
         title: title.clone(),
-        path: html_path.strip_prefix(output_dir).map_err(|e| {
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!(
-                    "Failed to compute output relative path: couldn't strip '{}' from '{}': {e}",
-                    output_dir.display(),
-                    html_path.display()
-                ),
-            )
-        })?.to_path_buf(),
+        path: html_path.to_path_buf(),
     };
 
     if let Some(fm) = frontmatter {
@@ -201,7 +192,7 @@ fn process_markdown_file(
     } else {
         context.insert("title", &title);
     }
-    context.insert("relative_path", html_path.strip_prefix(output_dir).unwrap());
+    context.insert("relative_path", &href_to_root_style_css(&output_dir));
     context.insert("content", &html_content);
 
     let rendered_html = tera.render("base.html", &context).map_err(|e| {
@@ -218,6 +209,27 @@ fn process_markdown_file(
     Ok(())
 }
 
+fn href_to_root_style_css<P: AsRef<Path>>(file_path: P) -> String {
+    let path = file_path.as_ref();
+    let depth = path.parent().map(|p| p.components().count()).unwrap_or(0);
+
+    if depth == 0 {
+        // For files in the root (e.g., "123.md"), base.html will do "./style.css"
+        ".".to_string()
+    } else {
+        // Build "../" repeated `depth` times, but without the trailing slash at the end
+        // because base.html adds "/style.css".
+        let mut s = String::with_capacity(3 * depth - 1);
+        for i in 0..depth {
+            s.push_str("..");
+            if i + 1 != depth {
+                s.push('/');
+            }
+        }
+        s
+    }
+}
+
 fn process_asset(path: &Path, output_path: &Path) -> std::io::Result<()> {
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)?;
@@ -229,7 +241,13 @@ fn process_asset(path: &Path, output_path: &Path) -> std::io::Result<()> {
 
 fn render_index(tera: &Tera, output_dir: &Path, notes: &[Note]) -> std::io::Result<()> {
     let mut context = Context::new();
-    context.insert("notes", &notes);
+    let stripped_path_notes = notes.iter().map(| n| {
+        Note {
+            title: n.title.clone(),
+            path: n.path.strip_prefix(output_dir).unwrap().to_path_buf(),
+        }
+    }).collect::<Vec<Note>>();
+    context.insert("notes", &stripped_path_notes);
     let index_html = tera.render("index.html", &context).map_err(|e| {
         std::io::Error::new(
             std::io::ErrorKind::Other,
