@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use clap::Parser;
 use walkdir::WalkDir;
@@ -33,8 +33,9 @@ pub fn build_site(vault_path: &Path, output_dir: &Path) -> std::io::Result<()> {
 
     let mut notes: Vec<Note> = Vec::new();
     let mut tags: HashMap<String, Vec<Note>> = HashMap::new();
+    let mut processed_files: HashSet<PathBuf> = HashSet::new();
 
-    for entry in WalkDir::new(vault_path).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(vault_path).into_iter().filter_map(|e| e.ok()).filter(|e| !e.file_name().to_str().map_or(false, |s| s.starts_with("."))) {
         let path = entry.path();
         if path.is_dir() {
             continue;
@@ -50,14 +51,17 @@ pub fn build_site(vault_path: &Path, output_dir: &Path) -> std::io::Result<()> {
         let output_path = output_dir.join(relative_path);
 
         if path.extension().and_then(|s| s.to_str()) == Some("md") {
-            process_markdown_file(
-                path,
-                &output_dir.join(relative_path.parent().unwrap_or_else(|| Path::new(""))),
-                &tera,
-                &comrak_options,
-                &mut notes,
-                &mut tags,
-            )?;
+            if !processed_files.contains(path) {
+                process_markdown_file(
+                    path,
+                    &output_dir.join(relative_path.parent().unwrap_or_else(|| Path::new(""))),
+                    &tera,
+                    &comrak_options,
+                    &mut notes,
+                    &mut tags,
+                )?;
+                processed_files.insert(path.to_path_buf());
+            }
         } else {
             process_asset(path, &output_path)?;
         }
