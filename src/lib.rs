@@ -34,12 +34,13 @@ pub fn build_site(vault_path: &Path, output_dir: &Path) -> std::io::Result<()> {
     let mut notes: Vec<Note> = Vec::new();
     let mut tags: HashMap<String, Vec<Note>> = HashMap::new();
     let mut processed_files: HashSet<PathBuf> = HashSet::new();
-
-    for entry in WalkDir::new(vault_path).into_iter()
+    let entries = WalkDir::new(vault_path).into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| !e.file_name()
             .to_str()
-            .map_or(false, |s| s.starts_with("."))) {
+            .map_or(false, |s| s.starts_with(".")));
+
+    for entry in entries {
         let path = entry.path();
         if path.is_dir() {
             continue;

@@ -1,7 +1,7 @@
 {% macro render_tree(nodes) %}
 {% for node in nodes %}
 <li>
-    <span class="collapsible">{{ node.title }}</span>
+    <span class="collapsible collapsible-open">{{ node.title }}</span>
     <div class="content">
         {# Notes in this folder #}
         {% if node.notes %}

@@ -54,16 +54,17 @@ pub fn render_tag_pages(
     Ok(())
 }
 
-fn initiate_nodes_tree(notes: Vec<Note>, output_dir: &Path) -> Node {
+fn initiate_nodes_tree(mut notes: Vec<Note>, output_dir: &Path) -> Node {
     let mut root_node = Node {
         nodes: Vec::new(),
         title: output_dir.to_str().unwrap().to_string(),
         notes: Vec::new(),
     };
+    notes.sort_by(|a, b| a.path.cmp(&b.path));
     notes.iter().for_each(|n| {
         let mut parts = n.path.to_str().unwrap().split("/").collect::<VecDeque<&str>>();
-        parts.pop_back();
-        parts.pop_front();
+        parts.pop_back(); // Remove file name
+        parts.pop_front(); // Remove output dir
         let node_ref = find_or_create_node(parts, &mut root_node);
         let mut note = n.clone();
         note.path = note.path.strip_prefix(output_dir).unwrap().to_path_buf();
