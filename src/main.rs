@@ -1,3 +1,4 @@
+use std::option::Option;
 use clap::Parser;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -7,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use gray_matter::Matter;
 use gray_matter::engine::YAML;
 use tera::{Tera, Context};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::ops::DerefMut;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -26,6 +28,13 @@ struct Frontmatter {
     title: Option<String>,
     date: Option<String>,
     tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct Node {
+    nodes: Vec<Node>,
+    title: String,
+    notes: Vec<Note>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -223,7 +232,7 @@ fn href_to_root_style_css<P: AsRef<Path>>(file_path: P) -> String {
         for i in 0..depth {
             s.push_str("..");
             if i + 1 != depth {
-                s.push('/');
+                s.push_str("/");
             }
         }
         s
@@ -239,25 +248,63 @@ fn process_asset(path: &Path, output_path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+fn initiate_nodes_tree(notes: Vec<Note>, output_dir: &Path) -> Node {
+    let mut root_node = Node {
+        nodes: Vec::new(),
+        title: output_dir.to_str().unwrap().to_string(),
+        notes: Vec::new(),
+    };
+    notes.iter().for_each(|n| {
+        let mut parts = n.path.to_str().unwrap().split("/").collect::<VecDeque<&str>>();
+        parts.pop_back();
+        parts.pop_front();
+        let node_ref = find_or_create_node(parts, &mut root_node);
+        let mut note = n.clone();
+        note.path = note.path.strip_prefix(output_dir).unwrap().to_path_buf();
+        node_ref.notes.push(note);
+    });
+    root_node
+}
+
+fn find_or_create_node<'a>(mut path_parts: VecDeque<&str>, node: &'a mut Node) -> &'a mut Node {
+    if path_parts.is_empty() {
+        return node;
+    }
+    let cur_folder = path_parts.pop_front().unwrap();
+    // Find index first to avoid overlapping mutable borrows
+    let idx = match node.nodes.iter().position(|n| n.title == cur_folder) {
+        Some(i) => i,
+        None => {
+            node.nodes.push(Node {
+                nodes: Vec::new(),
+                title: cur_folder.to_string(),
+                notes: Vec::new(),
+            });
+            node.nodes.len() - 1
+        }
+    };
+
+    let child = &mut node.nodes[idx];
+    find_or_create_node(path_parts, child)
+}
+
 fn render_index(tera: &Tera, output_dir: &Path, notes: &[Note]) -> std::io::Result<()> {
     let mut context = Context::new();
-    let stripped_path_notes = notes.iter().map(| n| {
-        Note {
-            title: n.title.clone(),
-            path: n.path.strip_prefix(output_dir).unwrap().to_path_buf(),
-        }
-    }).collect::<Vec<Note>>();
-    context.insert("notes", &stripped_path_notes);
+
+    let notes_tree = initiate_nodes_tree(notes.to_vec(), output_dir);
+
+    context.insert("nodes", &notes_tree);
     let index_html = tera.render("index.html", &context).map_err(|e| {
         std::io::Error::new(
             std::io::ErrorKind::Other,
-            format!("Template rendering failed for index.html: {e}"),
+            format!("Template rendering failed for index.html: {e:?}"),
         )
     })?;
     let index_path = output_dir.join("index.html");
     fs::write(index_path, index_html)?;
     Ok(())
 }
+
 
 fn render_tag_pages(
     tera: &Tera,
@@ -273,7 +320,7 @@ fn render_tag_pages(
         let tag_html = tera.render("tag.html", &context).map_err(|e| {
             std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Template rendering failed for tag.html (tag='{}'): {e}", tag),
+                format!("Template rendering failed for tag.html (tag=\"{}\"): {{e}}", tag),
             )
         })?;
         let tag_path = tags_dir.join(format!("{}.html", tag));
@@ -303,7 +350,7 @@ fn build_site(vault_path: &Path, output_dir: &Path) -> std::io::Result<()> {
             std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!(
-                    "Failed to compute relative path: couldn't strip '{}' from '{}': {e}",
+                    "Failed to compute relative path: couldn't strip \"{}\" from \"{}\": {e}",
                     vault_path.display(),
                     path.display()
                 ),

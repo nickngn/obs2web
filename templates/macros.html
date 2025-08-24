@@ -1,0 +1,38 @@
+{% macro render_tree(nodes) %}
+{% for node in nodes %}
+<li>
+    <span class="collapsible">{{ node.title }}</span>
+    <div class="content">
+        {# Notes in this folder #}
+        {% if node.notes %}
+        <ul>
+            {% for note in node.notes %}
+            <li>
+                <a href="{{ note.path }}">{{ note.title }}</a>
+                {% if note.date is defined and note.date %}
+                <span class="note-date"> — {{ note.date }}</span>
+                {% endif %}
+                {% if note.tags is defined and note.tags %}
+                <span class="note-tags">
+                                        [
+                                        {% for t in note.tags %}
+                                            #{{ t }}{% if not loop.last %}, {% endif %}
+                                        {% endfor %}
+                                        ]
+                                    </span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        {# Child folders #}
+        {% if node.nodes %}
+        <ul>
+            {{ self::render_tree(nodes=node.nodes) }}
+        </ul>
+        {% endif %}
+    </div>
+</li>
+{% endfor %}
+{% endmacro %}

@@ -1,16 +1,48 @@
-<!DOCTYPE html>
+{% import "macros.html" as macros %}<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <title>Index</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .collapsible {
+            cursor: pointer;
+        }
+        .collapsible:before {
+            content: "\25B6";
+            color: black;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .collapsible-open:before {
+            content: "\25BC";
+        }
+        .content {
+            display: none;
+            padding-left: 1em;
+        }
+    </style>
 </head>
 <body>
-    <h1>Index</h1>
-    <ul>
-        {% for note in notes %}
-            <li><a href="{{ note.path }}">{{ note.title }}</a></li>
-        {% endfor %}
-    </ul>
+<h1>Index</h1>
+<ul>
+    {{ macros::render_tree(nodes=nodes.nodes) }}
+</ul>
+<script>
+    var coll = document.getElementsByClassName("collapsible");
+    var i;
+
+    for (i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function() {
+            this.classList.toggle("collapsible-open");
+            var content = this.nextElementSibling;
+            if (content.style.display === "block") {
+                content.style.display = "none";
+            } else {
+                content.style.display = "block";
+            }
+        });
+    }
+</script>
 </body>
 </html>
