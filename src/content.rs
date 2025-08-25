@@ -1,4 +1,4 @@
-use comrak::{ComrakOptions, ComrakRenderOptions};
+use comrak::{ComrakOptions, ComrakRenderOptions, ListStyleType};
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
 use std::collections::HashMap;
@@ -56,8 +56,15 @@ fn rewrite_links(content: &str) -> String {
 
 pub fn make_comrak_options() -> ComrakOptions {
     let mut comrak_options = ComrakOptions::default();
+    comrak_options.extension.table = true;
+    comrak_options.extension.autolink = true;
+    comrak_options.extension.tagfilter = true;
+    comrak_options.extension.strikethrough = true;
+    comrak_options.extension.tasklist = true;
+    comrak_options.parse.smart = true;
     let mut render_options = ComrakRenderOptions::default();
     render_options.unsafe_ = true;
+    render_options.list_style=ListStyleType::Plus;
     comrak_options.render = render_options;
     comrak_options
 }
@@ -117,7 +124,9 @@ pub fn process_markdown_file(
         let rel = parent; // caller ensures directories
         let parent_rel_name = rel.file_name();
         if let Some(_name) = parent_rel_name {
-            output_path = output_dir.join(path.file_name().unwrap_or_default());
+            let file_name = path.file_name().unwrap_or_default().to_str().unwrap()
+                .replace("?", "");
+            output_path = output_dir.join(file_name);
             // Ensure parent exists
             if let Some(parent_out) = output_path.parent() {
                 fs::create_dir_all(parent_out)?;

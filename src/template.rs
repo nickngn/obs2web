@@ -69,6 +69,7 @@ fn initiate_nodes_tree(mut notes: Vec<Note>, output_dir: &Path) -> Node {
         let mut note = n.clone();
         note.path = note.path.strip_prefix(output_dir).unwrap().to_path_buf();
         node_ref.notes.push(note);
+        node_ref.notes.sort_by(|a, b| b.path.cmp(&a.path));
     });
     root_node
 }

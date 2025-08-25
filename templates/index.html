@@ -46,36 +46,30 @@
     <h4 class="breadcrumb"></h4>
     <div id="article"></div>
 </div>
+<script src="https://code.jquery.com/jquery-3.7.1.slim.min.js" integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8=" crossorigin="anonymous"></script>
 <script>
-    var coll = document.getElementsByClassName("collapsible");
-    var i;
-
-    for (i = 0; i < coll.length; i++) {
-        coll[i].addEventListener("click", function() {
-            this.classList.toggle("collapsible-open");
-            var content = this.nextElementSibling;
-            if (content.style.display === "block") {
-                content.style.display = "none";
-            } else {
-                content.style.display = "block";
-            }
+    $(function () {
+        // Collapsible toggle
+        $('.collapsible').on('click', function () {
+            $(this).toggleClass('collapsible-open');
+            $(this).next().toggle();
         });
-    }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        document.addEventListener('click', async function (e) {
-            const link = e.target.closest("a"); // finds nearest <a>
-            if (link) {
-                e.preventDefault();
-                console.log("Clicked:", link);
-                document.querySelector('.breadcrumb').innerHTML = link.getAttribute('href')
-                    .replace('/', ' / ')
-                    .replace('.html', '');
-                document.getElementById('article').innerHTML = await fetch(link.href)
-                    .then(r => r.text());
-            }
-        })
-    })
+        // Delegated link click handling
+        $('.nav-bar').on('click', 'a', async function (e) {
+            e.preventDefault();
+            const href = $(this).attr('href');
+            console.log('Clicked:', this);
+
+            $('.breadcrumb').html(
+                href.replaceAll('/', ' / ').replace('.html', '')
+            );
+
+            const html = await fetch(this.href).then(r => r.text());
+            $('#article').html(html);
+        });
+    });
+
 </script>
 </body>
 </html>
